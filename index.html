@@ -1,0 +1,29 @@
+<html>
+    <body>
+        <canvas id="canvas"></canvas>
+        <script>
+            var image = new Image();
+            var canvas = document.getElementById("canvas");
+            var scale = Math.min(window.innerHeight, window.innerWidth) / 256;
+            canvas.style.position = 'absolute';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+            canvas.style.transformOrigin = '0 0 0';
+            canvas.style.transform = 'scale(' + scale + ')';
+            canvas.height = 256;
+            canvas.width = 256;
+            var context = canvas.getContext("2d");
+            image.onload = function () {
+                context.drawImage(image, 0, 0);
+                tick();
+            };
+            image.onerror = function (err) {
+                console.log(err);
+            };
+            function tick() {
+                image.src = "http://gol01.aelf.land:6007/?" + Math.random().toString(36).slice(2);
+            }
+            tick();
+        </script>
+    </body>
+</html>
