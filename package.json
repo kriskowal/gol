@@ -1,0 +1,19 @@
+{
+  "name": "gol",
+  "description": "Game of Life",
+  "author": "Kris Kowal <kris@cixar.com>",
+  "version": "0.0.0",
+  "dependencies": {
+    "commander": "^2.8.1",
+    "ndim": "0.0.2",
+    "node-png": "^0.4.3",
+    "ringpop": "^10.1.0",
+    "tchannel": "^2.4.6"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node gol.js"
+  },
+  "private": true
+}
