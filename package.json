@@ -8,6 +8,8 @@
     "ndim": "0.0.2",
     "node-png": "^0.4.3",
     "ringpop": "^10.1.0",
+    "stream-cache": "0.0.2",
+    "tape": "^4.2.0",
     "tchannel": "^2.4.6"
   },
   "devDependencies": {},
