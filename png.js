@@ -15,7 +15,7 @@ function chunkToPng(chunk) {
         point.y = chunk.position.y + y;
         for (var x = 0; x < png.width; x++) {
             point.x = chunk.position.x + x;
-            var value = chunk.get(point) ? 0 : 255;
+            var value = (1 - chunk.get(point)) * 255;
             var i = (png.width * y + x) << 2;
             png.data[i + 0] = value; // r
             png.data[i + 1] = value; // g
