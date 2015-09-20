@@ -11,10 +11,10 @@ test('2x2 in 4x4', function t(assert) {
         chunkSize: new Point2(2, 2)
     });
 
-    worldRange.setRange(0, worldRange.length);
+    worldRange.setRange(0, worldRange.hilbertLength);
     assert.deepEquals(worldRange.getContents(), ['0', '1', '2', '3'], 'content of whole world');
 
-    worldRange.setRange(0, worldRange.length / 2);
+    worldRange.setRange(0, worldRange.hilbertLength / 2);
     assert.deepEquals(worldRange.getContents(), ['0', '2'], 'content of half world');
     assert.deepEquals(worldRange.getNeighbors(), ['1', '3'], 'content of neighborhood of half world');
 
@@ -28,7 +28,7 @@ test('2x2 in 16x16', function t(assert) {
         chunkSize: new Point2(2, 2)
     });
 
-    worldRange.setRange(0, worldRange.chunkLength);
+    worldRange.setRange(0, worldRange.chunkHilbertLength);
     assert.deepEquals(worldRange.getContents(), ['000'], 'world containing only a corner');
     assert.deepEquals(worldRange.getNeighbors(), ['001', '002', '003'], 'neighbors of corner');
 
