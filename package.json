@@ -5,12 +5,14 @@
   "version": "0.0.0",
   "dependencies": {
     "commander": "^2.8.1",
+    "farmhash": "^1.1.0",
     "ndim": "^1.4.0",
     "node-png": "^0.4.3",
-    "ringpop": "^10.1.0",
+    "q": "^2.0.3",
+    "ringpop": "^10.9.6",
     "stream-cache": "0.0.2",
     "tape": "^4.2.0",
-    "tchannel": "^2.4.6"
+    "tchannel": "^2.10.1"
   },
   "devDependencies": {},
   "scripts": {

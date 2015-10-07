@@ -4,7 +4,8 @@ var program = require('commander');
 var TChannel = require('tchannel');
 var Ringpop = require('ringpop');
 var Point2 = require('ndim/point2');
-var WorldService = require('./world-service');
+var WorldRange = require('./world-range');
+var Ring = require('./ring');
 
 function main() {
     program
@@ -30,35 +31,44 @@ function main() {
 
     function onListening() {
 
+        var worldRange = new WorldRange({
+            size: new Point2(512, 512),
+            chunkSize: new Point2(32, 32),
+        });
+
+        var ring = new Ring({
+            hash: null,
+            worldRange: worldRange,
+            address: channel.hostPort,
+            replicas: 1
+        });
+
         var ringpop = new Ringpop({
             app: 'gol',
             hostPort: channel.hostPort,
             logger: createLogger('ringpop'),
             channel: channel.makeSubChannel({
                 serviceName: 'ringpop'
-            })
+            }),
+            Ring: function () {
+                return ring;
+            }
         });
 
         ringpop.setupChannel();
         ringpop.bootstrap(program.hosts);
 
-        var worldService = new WorldService({
-            address: channel.hostPort,
-            ringpop: ringpop,
-            logger: createLogger('world'),
-            channel: channel.makeSubChannel({
-                serviceName: 'gol'
-            }),
-            size: new Point2(512, 512),
-            chunkSize: new Point2(32, 32),
-            replicas: 3
-        });
+        setInterval(function () {
+            console.log('\x1b[2J\x1b[H' + worldRange.render());
+            console.log(ring.address + ' in ' + ring.addresses.join(' '));
+            console.log(ring.checksum);
+        }, 1000);
 
-        worldService.start();
-
+        // Every one to two minutes, commit suicide to see how well the cluster
+        // recovers.
         setTimeout(function () {
             process.exit();
-        }, Math.random() * 60 * 1000 + 60 * 1000);
+        }, (1 + Math.random()) * 60e3);
 
     }
 
@@ -73,6 +83,7 @@ function createLogger(name) {
     };
 
     function enrich(level, method) {
+        return function noop() {} // XXX
         return function log() {
             var args = Array.prototype.slice.call(arguments);
             args[0] = name + ' ' + level + ' ' + args[0];
