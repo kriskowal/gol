@@ -10,9 +10,11 @@
     "node-png": "^0.4.3",
     "q": "^2.0.3",
     "ringpop": "^10.9.6",
+    "shon": "^1.1.0",
     "stream-cache": "0.0.2",
     "tape": "^4.2.0",
-    "tchannel": "^2.10.1"
+    "tchannel": "^3.6.2",
+    "toobusy": "^0.2.4"
   },
   "devDependencies": {},
   "scripts": {

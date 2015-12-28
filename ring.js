@@ -12,17 +12,18 @@ function Ring(options) {
     this.address = options.address;
     this.hash = options.hash || farmhash.hash32;
     this.replicas = options.replicas;
-    this.worldRange = options.worldRange;
+    this.delegate = options.delegate;
 }
 
 util.inherits(Ring, EventEmitter);
 
 Ring.prototype.whoami = function whoami() {
-    throw new Error('whoami not implemented');
+	return this.addresses[this.index];
 };
 
 Ring.prototype.lookup = function lookup(value) {
-    throw new Error('lookup not implemented');
+	var index = this.delegate.lookup(value);
+	return this.addresses[index];
 };
 
 Ring.prototype.addRemoveServers = function addRemoveServers(plus, minus) {
@@ -43,7 +44,12 @@ Ring.prototype.addRemoveServers = function addRemoveServers(plus, minus) {
 
 Ring.prototype.update = function update() {
     this.index = indexOf(this.addresses, this.address);
-    this.worldRange.updateMembership(this.index, this.addresses.length, this.replicas);
+    this.delegate.updatePeers(
+        this.index,
+        this.addresses.length,
+        this.replicas,
+        this.checksum
+    );
     this.checksum = this.hash(this.addresses.join(','));
     this.emit('checksumComputed');
 };
