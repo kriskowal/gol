@@ -8,16 +8,24 @@ function Generation(args) {
     this.world = args.world;
     this.range = args.range;
     this.game = args.game;
-    this.prev = null;
+    this.number = args.number;
+    this.timers = args.timers;
+    this.complete = this.number === -1;
 
-    this.number = -1;
-    this.complete = true;
+    this.prev = null;
+    this.next = null;
 
     this.neededChunks = {}; // object-set of all needed quadkeys
     this.completedChunks = {}; // object-set of all completed keys
 
     this.neededOwnPool = []; // array of all needed and owned quadkeys to complete generation
     this.neededPool = []; // array of all needed quadkeys to complete generation
+
+    this.collaborators = {};
+
+    this.startedAt = args.timers.now();
+    this.completedAt = null;
+    this.duration = null;
 }
 
 Generation.prototype.start = function start(number) {
@@ -26,9 +34,11 @@ Generation.prototype.start = function start(number) {
     }
 
     this.number = number;
-    this.complete = number < 0;
+    this.complete = number === -1;
     this.completedChunks = {};
     this.onRangeUpdated();
+
+    this.collaborators = {};
 
     if (number > this.game.generation.number) {
         this.game.generation = this;
@@ -42,43 +52,41 @@ Generation.prototype.onRangeUpdated = function onRangeUpdated() {
     this.checkCompletion();
 };
 
-Generation.prototype.nextChunk = function nextChunk() {
-    this.computeChunk();
-};
-
 Generation.prototype.chooseKey = function chooseKey() {
-    // prefer neededOwnChunk
-    // fall back to neededChunk
-    var pool;
-    if (this.neededOwnPool.length) {
-        pool = this.neededOwnPool;
-    } else if (this.neededPool.length) {
-        pool = this.neededPool;
-    } else {
-        return null;
-    }
-
-    var index = Math.floor(Math.random() * pool.length);
-    var key = pool[index];
-    popIndex(pool, index);
 
     return key;
 };
 
 Generation.prototype.computeChunk = function computeChunk() {
-    if (!this.prev.complete) {
+    if (!this.prev.complete || this.prev.number !== this.number - 1) {
+        return;
+    }
+
+    // prefer neededOwnChunk
+    // fall back to neededChunk
+    var pool;
+    var own = false;
+    if (this.neededOwnPool.length) {
+        pool = this.neededOwnPool;
+        own = true;
+    } else if (this.neededPool.length) {
+        pool = this.neededPool;
+    } else {
+        this.checkCompletion();
         return;
     }
 
     // Find a key that has not been completed, if any remain.
     var key;
     for (;;) {
-        key = this.chooseKey();
-        if (key === null) {
-            // no more keys
+        if (pool.length === 0) {
             this.checkCompletion();
             return;
         }
+        var index = Math.floor(Math.random() * pool.length);
+        var key = pool[index];
+        popIndex(pool, index);
+
         if (!this.completedChunks[key]) {
             break;
         }
@@ -90,8 +98,14 @@ Generation.prototype.computeChunk = function computeChunk() {
     this.game.generateOnto(prevChunk, nextChunk);
     this.completeChunk(key, 'computed');
 
+    // Do not broadcast non-own chunks
+    if (!own) {
+        return;
+    }
+
     // broadcast chunk to all peers
     for (var i = 0; i < this.range.peersLength; i++) {
+        // TODO link actual chunk to drop requests to send stale buffers for recycled generations
         this.game.enqueueChunk({
             id: i + '/' + this.number + '/' + key,
             peer: i,
@@ -102,10 +116,12 @@ Generation.prototype.computeChunk = function computeChunk() {
     }
 };
 
-Generation.prototype.receiveChunk = function receiveChunk(quadkey, buffer) {
+Generation.prototype.receiveChunk = function receiveChunk(quadkey, buffer, address) {
     if (this.completedChunks[quadkey]) {
         return;
     }
+
+    this.collaborators[address] = true;
 
     var chunk = this.world.defaultChunk(quadkey);
     buffer.copy(chunk.buffer);
@@ -120,8 +136,14 @@ Generation.prototype.completeChunk = function completeChunk(quadkey, means) {
 };
 
 Generation.prototype.checkCompletion = function checkCompletion() {
-    this.complete = isEmptyObject(this.neededChunks);
     if (this.complete) {
+        // TODO warn, why are we checking?
+        return;
+    }
+    this.complete = this.complete || isEmptyObject(this.neededChunks);
+    if (this.complete) {
+        this.completedAt = this.timers.now();
+        this.duration = this.completedAt - this.startedAt;
         this.next.start(this.number + 1);
     }
 };

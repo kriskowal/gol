@@ -35,10 +35,10 @@ function Game(args) {
     // Create a ring of recyclable generation objects
     // circular buffer of generations
     this.generations = [
-        this.createGeneration(),
-        this.createGeneration(),
-        this.createGeneration(),
-        this.createGeneration()
+        this.createGeneration(-4),
+        this.createGeneration(-3),
+        this.createGeneration(-2),
+        this.createGeneration(-1)
     ];
     for (var i = 0; i < this.generations.length; i++) {
         var prev = this.generations[i];
@@ -54,7 +54,6 @@ function Game(args) {
     this.maxConcurrentRequests = 10;
     this.concurrentRequests = 0;
     this.requestQueue = [];
-    this.queuedChunks = {};
 
     var self = this;
     function boundTick() {
@@ -67,10 +66,12 @@ Game.prototype.start = function start() {
     this.boundTick();
 };
 
-Game.prototype.createGeneration = function createGeneration() {
+Game.prototype.createGeneration = function createGeneration(number) {
     return new Generation({
+        number: number,
         world: this.createWorld(),
         range: this.range,
+        timers: this.timers,
         game: this
     });
 };
@@ -89,20 +90,26 @@ Game.prototype.updatePeers = function updatePeers(index, length, replicas, check
     this.replicas = replicas;
     this.checksum = checksum;
     this.range.updatePeers(index, length, replicas, checksum);
-    this.generation.onRangeUpdated();
+    for (var i = 0; i < this.generations.length; i++) {
+        var generation = this.generations[i];
+        generation.onRangeUpdated();
+    }
 };
 
 Game.prototype.nextChunk = function nextChunk() {
-    this.timers.setImmediate(this.boundTick);
     for (var i = 0; i < this.generations.length; i++) {
         var generation = this.generations[i];
-        generation.nextChunk();
+        for (var j = 0; j < 5; j++) {
+            generation.computeChunk();
+        }
     }
+    this.timers.setTimeout(this.boundTick, 4);
 };
 
 Game.prototype.getGeneration = function getGeneration(generationNumber) {
     var generation = this.generations[generationNumber % this.generations.length];
     if (generationNumber < generation.number) {
+        // the generation is lost to history
         return null;
     }
     if (generationNumber > generation.number) {
@@ -111,24 +118,18 @@ Game.prototype.getGeneration = function getGeneration(generationNumber) {
         generation.prev.start(generationNumber - 1);
     }
 
-    // TODO update this.generation to reflect the last generation with a complete prior generation
-
     return generation;
 };
 
 Game.prototype.enqueueChunk = function enqueueChunk(request) {
-    if (this.queuedChunks[request.id]) {
-        return;
+    // randomize order of transmission
+    var index = 0;
+    if (this.requestQueue.length) {
+        index = Math.floor(Math.random() * this.requestQueue.length);
+        this.requestQueue.push(this.requestQueue[index]);
     }
-    this.queuedChunks[request.id] = true;
-    this.requestQueue.push(request);
+    this.requestQueue[index] = request;
     this.sendNextChunk();
-};
-
-Game.prototype.flush = function flush() {
-    if (this.concurrentRequests >= this.maxConcurrentRequests) {
-        return;
-    }
 };
 
 Game.prototype.sendNextChunk = function sendNextChunk() {
@@ -138,7 +139,15 @@ Game.prototype.sendNextChunk = function sendNextChunk() {
         return;
     }
 
-    var request = this.requestQueue.shift();
+    var request;
+    for (;;) {
+        request = this.requestQueue.shift();
+        if (!request) return;
+        if (request.generation >= this.generation.number - 1) {
+            break;
+        }
+    }
+
     this.concurrentRequests++;
     this.sendChunk(request, onAcknowledged);
 
@@ -149,7 +158,6 @@ Game.prototype.sendNextChunk = function sendNextChunk() {
 
 Game.prototype.onChunkAcknowledged = function onChunkAcknowledged(err, request, response) {
     this.concurrentRequests -= 1;
-    delete this.queuedChunks[request.id];
 
     if (err) {
         this.lastError = err;
@@ -162,16 +170,12 @@ Game.prototype.onChunkAcknowledged = function onChunkAcknowledged(err, request, 
     this.sendNextChunk();
 };
 
-Game.prototype.receiveChunk = function receiveChunk(generationNumber, quadkey, buffer) {
+Game.prototype.receiveChunk = function receiveChunk(generationNumber, quadkey, buffer, address) {
     var generation = this.getGeneration(generationNumber);
-
     if (!generation) {
         return;
     }
-
-    if (!generation.receiveChunk(quadkey, buffer)) {
-        return;
-    }
+    generation.receiveChunk(quadkey, buffer, address);
 };
 
 Game.prototype.generateOnto = function generateOnto(prev, next) {
